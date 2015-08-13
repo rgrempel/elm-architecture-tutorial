@@ -1,12 +1,12 @@
 module SpinSquare (Model, Action, init, update, view) where
 
 import Easing exposing (ease, easeOutBounce, float)
-import Effects exposing (Effects)
 import Html exposing (Html)
 import Svg exposing (svg, rect, g, text, text')
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (onClick)
 import Time exposing (Time, second)
+import StartApp exposing (HandledTask, tick)
 
 
 -- MODEL
@@ -21,10 +21,10 @@ type alias AnimationState =
     Maybe { prevClockTime : Time,  elapsedTime: Time }
 
 
-init : (Model, Effects Action)
+init : (Model, List Action)
 init =
   ( { angle = 0, animationState = Nothing }
-  , Effects.none
+  , []
   )
 
 
@@ -39,16 +39,16 @@ type Action
     | Tick Time
 
 
-update : Action -> Model -> (Model, Effects Action)
-update msg model =
+update : Signal.Address Action -> Action -> Model -> (Model, Maybe HandledTask)
+update address msg model =
   case msg of
     Spin ->
       case model.animationState of
         Nothing ->
-          ( model, Effects.tick Tick )
+          ( model, Just <| tick address Tick )
 
         Just _ ->
-          ( model, Effects.none )
+          ( model, Nothing )
 
     Tick clockTime ->
       let
@@ -64,13 +64,13 @@ update msg model =
           ( { angle = model.angle + rotateStep
             , animationState = Nothing
             }
-          , Effects.none
+          , Nothing
           )
         else
           ( { angle = model.angle
             , animationState = Just { elapsedTime = newElapsedTime, prevClockTime = clockTime }
             }
-          , Effects.tick Tick
+          , Just <| tick address Tick
           )
 
 

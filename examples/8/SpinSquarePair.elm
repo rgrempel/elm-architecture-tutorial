@@ -1,9 +1,9 @@
 module SpinSquarePair where
 
-import Effects exposing (Effects)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import SpinSquare
+import StartApp exposing (HandledTask)
 
 
 -- MODEL
@@ -14,17 +14,14 @@ type alias Model =
     }
 
 
-init : (Model, Effects Action)
+init : (Model, List Action)
 init =
   let
     (left, leftFx) = SpinSquare.init
     (right, rightFx) = SpinSquare.init
   in
     ( Model left right
-    , Effects.batch
-        [ Effects.map Left leftFx
-        , Effects.map Right rightFx
-        ]
+    , List.map Left leftFx ++ List.map Right rightFx
     )
 
 
@@ -35,23 +32,23 @@ type Action
     | Right SpinSquare.Action
 
 
-update : Action -> Model -> (Model, Effects Action)
-update action model =
+update : Signal.Address Action -> Action -> Model -> (Model, Maybe HandledTask)
+update address action model =
   case action of
     Left act ->
       let
-        (left, fx) = SpinSquare.update act model.left
+        (left, fx) = SpinSquare.update (Signal.forwardTo address Left) act model.left
       in
         ( Model left model.right
-        , Effects.map Left fx
+        , fx
         )
 
     Right act ->
       let
-        (right, fx) = SpinSquare.update act model.right
+        (right, fx) = SpinSquare.update (Signal.forwardTo address Right) act model.right
       in
         ( Model model.left right
-        , Effects.map Right fx
+        , fx
         )
 
 

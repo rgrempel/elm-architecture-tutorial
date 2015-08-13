@@ -1,12 +1,12 @@
 module RandomGif where
 
-import Effects exposing (Effects, Never)
 import Html exposing (..)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Json
-import Task
+import Task exposing (Task, andThen, onError)
+import StartApp exposing (HandledTask, notify)
 
 
 -- MODEL
@@ -17,10 +17,10 @@ type alias Model =
     }
 
 
-init : String -> (Model, Effects Action)
+init : String -> (Model, List Action)
 init topic =
   ( Model topic "assets/waiting.gif"
-  , getRandomGif topic
+  , [RequestMore]
   )
 
 
@@ -28,18 +28,25 @@ init topic =
 
 type Action
     = RequestMore
-    | NewGif (Maybe String)
+    | NewGif String
 
 
-update : Action -> Model -> (Model, Effects Action)
-update action model =
+update : Signal.Address Action -> Action -> Model -> (Model, Maybe HandledTask)
+update address action model =
   case action of
     RequestMore ->
-      (model, getRandomGif model.topic)
+      ( model
+      , Just <|
+          getRandomGif model.topic
+            `andThen` notify address NewGif
+            `onError` always (Task.fail ())
+            -- normally, another notify ... but the original example doesn't handle
+            -- the failure case either
+      )
 
-    NewGif maybeUrl ->
-      ( Model model.topic (Maybe.withDefault model.gifUrl maybeUrl)
-      , Effects.none
+    NewGif url ->
+      ( Model model.topic url
+      , Nothing
       )
 
 
@@ -79,12 +86,9 @@ imgStyle url =
 
 -- EFFECTS
 
-getRandomGif : String -> Effects Action
+getRandomGif : String -> Task Http.Error String
 getRandomGif topic =
   Http.get decodeUrl (randomUrl topic)
-    |> Task.toMaybe
-    |> Task.map NewGif
-    |> Effects.task
 
 
 randomUrl : String -> String

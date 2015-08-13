@@ -1,5 +1,4 @@
 
-import Effects exposing (Never)
 import RandomGifList exposing (init, update, view)
 import StartApp
 import Task
@@ -18,7 +17,7 @@ main =
   app.html
 
 
-port tasks : Signal (Task.Task Never ())
+port tasks : Signal (Task.Task () ())
 port tasks =
   app.tasks
 

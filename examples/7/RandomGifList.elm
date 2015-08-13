@@ -1,10 +1,12 @@
 module RandomGifList where
 
-import Effects exposing (Effects, map, batch, Never)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
+import StartApp exposing (HandledTask, batch, notify)
+import Task exposing (Task)
+import Debug
 
 import RandomGif
 
@@ -18,10 +20,10 @@ type alias Model =
     }
 
 
-init : (Model, Effects Action)
+init : (Model, List Action)
 init =
     ( Model "" [] 0
-    , Effects.none
+    , []
     )
 
 
@@ -33,12 +35,12 @@ type Action
     | SubMsg Int RandomGif.Action
 
 
-update : Action -> Model -> (Model, Effects Action)
-update message model =
+update : Signal.Address Action -> Action -> Model -> (Model, Maybe HandledTask)
+update address message model =
     case message of
         Topic topic ->
             ( { model | topic <- topic }
-            , Effects.none
+            , Nothing
             )
 
         Create ->
@@ -50,7 +52,9 @@ update message model =
                     Model "" (model.gifList ++ [(model.uid, newRandomGif)]) (model.uid + 1)
             in
                 ( newModel
-                , map (SubMsg model.uid) fx
+                , Just <|
+                    batch <|
+                        List.map (notify address (SubMsg model.uid)) fx
                 )
 
         SubMsg msgId msg ->
@@ -58,13 +62,13 @@ update message model =
                 subUpdate ((id, randomGif) as entry) =
                     if id == msgId then
                         let
-                            (newRandomGif, fx) = RandomGif.update msg randomGif
+                            (newRandomGif, fx) = RandomGif.update (Signal.forwardTo address (SubMsg id)) msg randomGif
                         in
                             ( (id, newRandomGif)
-                            , map (SubMsg id) fx
+                            , fx
                             )
                     else
-                        (entry, Effects.none)
+                        (entry, Nothing)
 
                 (newGifList, fxList) =
                     model.gifList
@@ -72,7 +76,9 @@ update message model =
                         |> List.unzip
             in
                 ( { model | gifList <- newGifList }
-                , batch fxList
+                , Just <|
+                    batch <|
+                        List.filterMap identity fxList
                 )
 
 
