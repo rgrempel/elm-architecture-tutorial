@@ -9,7 +9,7 @@ To do this, I've reworked examples 5 through 8 using a
 You can see both the changes to the examples, and the changes to StartApp, at the
 following commit:
 
-a08dbe8d37392684174af18df08c97d6b077c2b4
+[a08dbe8d37392684174af18df08c97d6b077c2b4](https://github.com/rgrempel/elm-architecture-tutorial/commit/a08dbe8d37392684174af18df08c97d6b077c2b4)
 
 You can also check out this branch (plain-old-tasks) and run the examples in
 elm-reactor, just like the original examples. But it's not super-interesting,
