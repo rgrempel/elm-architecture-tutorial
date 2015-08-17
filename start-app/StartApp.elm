@@ -1,4 +1,4 @@
-module StartApp ( start, Config, App, HandledTask, notify, tick, batch ) where
+module StartApp ( start, Config, App, HandledTask, notify, batch ) where
 {-| This module helps you start your application in a typical Elm workflow.
 It assumes you are following [the Elm Architecture][arch] and using
 [elm-effects][]. From there it will wire everything up for you!
@@ -17,7 +17,6 @@ works!**
 import Html exposing (Html)
 import Task
 import Maybe exposing (withDefault)
-import Native.Tick
 
 -- Note that the original StartApp uses `Task Never ()` in an attempt to force
 -- callers to deal explicitly with error conditions. However, it is doubtful
@@ -68,28 +67,8 @@ notify address tag result =
     Signal.send address (tag result)
 
 
--- Note that these ultimately wouldn't belong here -- instead, it would make
+-- Note that this ultimately wouldn't belong here -- instead, it would make
 -- sense in a task-extra type of package.
-
-{-| A task which will use the browser's native requestAnimationFrame() method to wait
-until a frame is needed. It will then evaluate the provided function, and immediately
-execute the task returned by that function. The function's parameter is the
-timestamp provided by the browser's requestAnimationFrame().
--}
-requestAnimationFrame : (Float -> Task.Task x a) -> Task.Task x a
-requestAnimationFrame =
-    Native.Tick.requestAnimationFrame
-
-
-{-| Uses requestAnimationFrame to send a message to an address when
-a frame is needed. The parameter to the message is the timestamp provided
-by the browser's requestAnimationFrame method.
--}
-tick : Signal.Address action -> (Float -> action) -> Task.Task x ()
-tick address tag =
-    requestAnimationFrame <|
-        notify address tag
-
 
 {-| Given a list of tasks, produce a task which executes each task in parallel,
 ignoring the results.

@@ -1,3 +1,7 @@
+// This is copied and renamed from
+//
+// https://github.com/evancz/elm-effects/blob/master/src/Native/Effects.js
+
 Elm.Native.Tick = {};
 Elm.Native.Tick.make = function(localRuntime) {
 
