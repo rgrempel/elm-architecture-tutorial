@@ -1,4 +1,4 @@
-module Ticker (tick, tock, tasks) where
+module Ticker (tick, tock, tasks, dropWhileWaiting) where
 {-| This module offers on-demand ticks, as an alternative to using `Time.fps`
 or `Time.fpsWhen` to manage a Signal that produces ticks, or using `Task.sleep`
 to delay a task.
@@ -31,17 +31,19 @@ Also note that the tasks returned by `tick` and `tock` are *not* automatically
 sent through this Signal -- you will need to arrange for those tasks to be
 executed in same way that other tasks are executed in your app.
 
-@docs tick, tock, tasks
+@docs tick, tock, tasks, waiting
 
 -}
 
-import Task exposing (Task)
+import Task exposing (Task, andThen)
 import Time exposing (Time)
 import Signal exposing (Address, Mailbox, send, mailbox, foldp)
 import Native.Tick
 
 
-{- Public API -}
+----------------
+-- Public API --
+----------------
 
 {-| Returns a task which, when excecuted, waits for the browser to request an
 animation frame (via the browser's native requestAnimationFrame() method). It
@@ -89,7 +91,70 @@ tasks =
     Signal.filterMap snd (Task.succeed ()) steps
 
 
-{- Implementation -}
+{-| Given a `Signal`, and an initial value, returns a new `Signal` which will
+drop all updates while we are waiting for a tick. When the tick arrives, and
+all the requests for a tick have been fulfilled, the `Signal` will emit its
+current value.
+
+This is useful to prevent your 'view' logic from running while we are waiting
+for a tick. There's no point updating the view multiple times before the next
+animation frame is needed, after all! So, if you have an app structure like this:
+
+    models : Signal Model
+
+    view : Model -> Html
+
+    port main : Signal Html
+    port main = Signal.map view models
+
+... then you can create some efficiency by changing the last line to this:
+
+    port main = Signal.map view (dropWhileWaiting models)
+
+Of course, your app will be wired differently -- the main thing is to apply
+`dropWhileWaiting` just before your 'view' logic is applied. Be careful not to
+prevent other parts of your logic from running -- you still need every
+`update`, for instance.
+
+Note that the initial value which you supply as the second parameter is not
+actually used -- it would only be used if the initial state would be to drop
+updates, which it is not. However, for the initial value is still required in
+order to satisfy the type checker -- it can be anything that has the
+correct type.
+-}
+dropWhileWaiting : a -> Signal a -> Signal a
+dropWhileWaiting base models =
+    let
+        -- This one will update whenever *either* side updates ... that is,
+        -- whenever we have a new model *or* we change our waiting state.
+        zipped =
+            Signal.map2 (,) models waiting.signal
+        
+        -- This will keep the zipped tuple so long as we're not waiting ...
+        -- note that base is never really used, because waiting starts
+        -- out False and the `not` makes it True, so we keep the first.
+        filtered =
+            Signal.filter (not << snd) (base, False) zipped 
+
+    in
+        -- And then we just extract the first thing from the filtered tuple.
+        -- Note that a value can be repeated if our waiting signal flashes
+        -- True and then False again with no intervening value having arrived
+        -- on the input signal. However, that wouldn't be the usual pattern.
+        -- We only wait if someone wants a tick, and they'll update the model
+        -- based on it, so in the usual scenario a new model will have arrived.
+        Signal.map fst filtered
+
+
+--------------------
+-- Implementation -- 
+--------------------
+
+{- Tracks our status, to support dropWhileWaiting.
+-}
+waiting : Mailbox Bool
+waiting = mailbox False
+
 
 {- The signature for `tick` calls for a function that produces a `Task x a` 
 because we don't actually care what the task does. However, internally we need
@@ -136,25 +201,30 @@ step action (list, task) =
                 else (func :: list, Nothing)
 
         Execute time ->
-            (
-                [],
-                Just <|
-                    batch <|
-                        List.map ((|>) time) list
+            ( []
+            , Just <|
+                batch (List.map ((|>) time) list)
+                `andThen` always (Signal.send waiting.address False)
             )
 
 
 batch : List (Task x a) -> HandledTask
 batch tasks =
     Task.map (always ()) <|
-        Task.sequence <|
-            List.map Task.spawn tasks
+        Task.mapError (always ()) <|
+            Task.sequence tasks
 
 
 schedule : HandledTask
 schedule =
-    requestAnimationFrame <|
-        Signal.send actions.address << Execute
+    let
+        raf =
+            requestAnimationFrame <|
+                Signal.send actions.address << Execute
+    
+    in
+        Signal.send waiting.address True
+            `andThen` always raf
 
 
 requestAnimationFrame : (Time -> HandledTask) -> HandledTask

@@ -17,6 +17,7 @@ works!**
 import Html exposing (Html)
 import Task
 import Maybe exposing (withDefault)
+import Ticker exposing (dropWhileWaiting)
 
 -- Note that the original StartApp uses `Task Never ()` in an attempt to force
 -- callers to deal explicitly with error conditions. However, it is doubtful
@@ -182,7 +183,7 @@ start config =
             Signal.filterMap snd (Task.succeed ()) modelAndTask
 
     in
-        { html = Signal.map (config.view address) model
+        { html = Signal.map (config.view address) (dropWhileWaiting (fst config.init) model)
         , model = model
         , tasks = task
         }

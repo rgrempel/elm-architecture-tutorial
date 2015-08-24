@@ -21,6 +21,11 @@ to the code in elm-effects which consolidates ticks, with several benefits:
 
 [e7fec54b49b19ed099735ca5193054ccfacb0780](https://github.com/rgrempel/elm-architecture-tutorial/commit/e7fec54b49b19ed099735ca5193054ccfacb0780)
 
+Note that I have now broken the Ticker module out into a
+[separate package](https://github.com/rgrempel/elm-ticker),
+with a significant optimization (it allows you to 'debounce' your view function
+so that it only runs once per animation frame).
+
 You can also check out this branch (plain-old-tasks) and run the examples in
 elm-reactor, just like the original examples. But it's not super-interesting,
 since they do exactly the same thing as the originals ...
