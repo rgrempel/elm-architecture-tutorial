@@ -1,3 +1,9 @@
+# Deprecation Notice
+
+This was a kind of experiment relevant in the Elm 0.16 time-frame. It is unlikely to be
+interesting in the Elm 0.17 world or later, since the special `Effects` type has now
+been renamed, and has an expanded role.
+
 # An Alternate Elm Architecture
 
 This branch represents an attempt to think through a variation of The Elm Architecture
